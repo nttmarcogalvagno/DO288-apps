@@ -130,11 +130,7 @@ pipeline {
                 sh '''
                         oc project ${STAGE_PROJECT}
                         oc delete all -l app=${APP_NAME}
-                sh '''
-                         oc project ${DEV_PROJECT}
-                         oc new-app --as-deployment-config --name ${APP_NAME} -i ${APP_NAME}:latest
-                         oc expose svc/${APP_NAME}
-		         sleep 5
+		        sleep 5
                    '''
 
                 echo '### Creating a new app in Staging ###'
