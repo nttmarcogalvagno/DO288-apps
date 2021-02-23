@@ -6,15 +6,16 @@ pipeline {
     agent {
       node {
         //TODO: Add label for the Maven jenkins agent
+	label 'maven'
       }
     }
 
     environment {
         //TODO: Customize these variables for your environment
-        DEV_PROJECT = "youruser-movies-dev"
-        STAGE_PROJECT = "youruser-movies-stage"
-        APP_GIT_URL = "https://github.com/youruser/DO288-apps"
-        NEXUS_SERVER = "http://nexus-common.apps.cluster.domain.example.com/repository/java"
+        DEV_PROJECT = "marco-galvagno-nttdata-com-movies-dev"
+        STAGE_PROJECT = "marco-galvagno-nttdata-com-movies-stage"
+        APP_GIT_URL = "https://github.com/nttmarcogalvagno/DO288-apps"
+        NEXUS_SERVER = "http://nexus-common.apps.ap45.prod.nextcle.com/repository/java"
 
         // DO NOT CHANGE THE GLOBAL VARS BELOW THIS LINE
         APP_NAME = "movies"
@@ -83,11 +84,28 @@ pipeline {
                 }
                 // TODO: Create a new OpenShift application based on the ${APP_NAME}:latest image stream
                 // TODO: Expose the ${APP_NAME} service for external access
+		
+		sh '''
+		    	 oc project ${DEV_PROJECT}
+		    	 oc new-app --as-deployment-config --name ${APP_NAME} -i ${APP_NAME}:latest
+		    	 oc expose svc/${APP_NAME}
+	 	   '''
+
             }
         }
 
         stage('Wait for deployment in DEV env') {
             //TODO: Watch deployment until pod is in 'Running' state
+		openshift.withCluster() {
+                      openshift.withProject(env.DEV_PROJECT) {
+                      	def deployment = openshift.selector("dc", "${APP_NAME}").rollout()
+			openshift.selector("dc", "${APP_NAME}").related('pods').untilEach(1) {
+                                return (it.object().status.phase == "Running")
+                            }   
+
+                      } 
+                    }
+
         }
 
         stage('Promote to Staging Env') {
@@ -98,6 +116,9 @@ pipeline {
                 script {
                     openshift.withCluster() {
                     // TODO: Tag the ${APP_NAME}:latest image stream in the dev env as ${APP_NAME}:stage in staging
+			
+			openshift.tag("marco-galvagno-nttdata-com-movies-dev/${APP_NAME}:latest","marco-galvagno-nttdata-com-movies-stage/${APP_NAME}:stage")
+			
                     }
                 }
             }
@@ -109,11 +130,21 @@ pipeline {
                 sh '''
                         oc project ${STAGE_PROJECT}
                         oc delete all -l app=${APP_NAME}
-                        sleep 5
+                sh '''
+                         oc project ${DEV_PROJECT}
+                         oc new-app --as-deployment-config --name ${APP_NAME} -i ${APP_NAME}:latest
+                         oc expose svc/${APP_NAME}
+		         sleep 5
                    '''
 
                 echo '### Creating a new app in Staging ###'
                 // TODO: Create a new app in staging and expose the service
+		sh '''
+                         oc project ${STAGE_PROJECT}
+                         oc new-app --as-deployment-config --name ${APP_NAME} -i ${APP_NAME}:stage
+                         oc expose svc/${APP_NAME}
+                   '''
+
             }
         }
 
