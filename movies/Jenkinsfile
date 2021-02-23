@@ -87,7 +87,7 @@ pipeline {
 		
 		sh '''
 		    	 oc project ${DEV_PROJECT}
-		    	 oc new-app --as-deployment-config --name ${APP_NAME} -i ${APP_NAME}:latest
+		    	 oc new-app --as-deployment-config --name ${APP_NAME} ${APP_NAME}:latest
 		    	 oc expose svc/${APP_NAME}
 	 	   '''
 
